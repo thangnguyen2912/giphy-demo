@@ -1,5 +1,6 @@
-import { useState, useContext, useLayoutEffect } from "react";
+import React, { useState, useContext, useRef, useCallback } from "react";
 import {
+  Gif,
   Grid,
   SearchBar,
   SearchContext,
@@ -16,7 +17,7 @@ const filterOptions: SearchOptions = {
   lang: "en",
   type: "gifs",
   sort: "relevant",
-  limit: 9,
+  limit: 12,
   rating: "g",
 };
 
@@ -27,8 +28,23 @@ const SearchExperience = () => (
 );
 
 const Components = () => {
-  const [gifSelected, setGifSelected] = useState<Array<IGif>>([]);
-  const [width, setWidth] = useState<number>(1024);
+  const [modalGif, setModalGif] = useState<IGif>();
+  const [gridWidth, setWidth] = useState<number>(1024);
+
+  const resizeObserver = useRef<ResizeObserver>(
+    new ResizeObserver((entries: ResizeObserverEntry[]) => {
+      const { width } = entries[0].contentRect;
+      setWidth(width);
+    })
+  );
+
+  const resizedContainerRef = useCallback((container: HTMLDivElement) => {
+    if (container !== null) {
+      resizeObserver.current.observe(container);
+    } else {
+      if (resizeObserver.current) resizeObserver.current.disconnect();
+    }
+  }, []);
 
   const { fetchGifs, searchKey } = useContext(SearchContext);
 
@@ -36,26 +52,33 @@ const Components = () => {
     gif: IGif,
     e: React.SyntheticEvent<HTMLElement, Event>
   ) => {
-    gifSelected.push(gif);
-    setGifSelected(gifSelected);
     e.preventDefault();
+    setModalGif(gif);
   };
 
-  console.log("Components... gifSelected...", { gifSelected, width });
+  const onCloseModal = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setModalGif(undefined);
+  };
 
   return (
-    <div className="giphy-container">
+    <div className="giphy-container" ref={resizedContainerRef}>
       <SearchBarComponent />
       <div className="giphy-wrapper-grid">
         <Grid
           key={searchKey}
           columns={3}
           gutter={9}
-          width={width}
+          width={gridWidth}
           fetchGifs={fetchGifs}
           onGifClick={onGifClick}
         />
       </div>
+      {modalGif && (
+        <div className="modal-gif" onClick={onCloseModal}>
+          <Gif gif={modalGif} width={Math.floor(gridWidth / 2)} />
+        </div>
+      )}
     </div>
   );
 };
